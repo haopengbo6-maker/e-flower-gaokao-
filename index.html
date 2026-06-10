@@ -1,0 +1,857 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>给你的一树花</title>
+  <style>
+    :root { --ink: #f7fff8; }
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; margin: 0; overflow: hidden;
+      background: #000; color: var(--ink);
+      font-family: "Microsoft YaHei","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+    }
+    #threeCanvas { position: absolute; inset: 0; z-index: 1; display: block; }
+    .ui-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+    .intro-copy {
+      position: absolute; left: clamp(34px,5vw,86px); top: clamp(34px,7vh,88px);
+      width: min(460px,42vw); pointer-events: none;
+      opacity: 1; transform: translateY(0);
+      transition: opacity 900ms ease, transform 900ms ease;
+    }
+    .intro-copy.is-quiet { opacity: 0; transform: translateY(-14px); }
+    .eyebrow { margin: 0 0 12px; font-size: 12px; letter-spacing: 0.22em; color: rgba(223,255,225,0.55); }
+    h1 {
+      margin: 0; font-size: clamp(32px,4.6vw,68px); line-height: 1.05; font-weight: 500;
+      text-shadow: 0 0 34px rgba(255,190,214,0.18);
+    }
+    .hint {
+      margin: 16px 0 0; max-width: 26em; font-size: 14px; line-height: 1.9;
+      color: rgba(246,255,246,0.62);
+    }
+
+    .player-shell {
+      position: absolute; right: 0; bottom: 0; top: auto;
+      z-index: 9; width: min(320px,24vw); min-width: 220px;
+      opacity: 0; transform: translateY(28px) scale(0.985); pointer-events: none;
+      transition: opacity 1100ms ease, transform 1100ms ease;
+    }
+    .player-shell.is-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+    .record-scene { position: relative; width: 100%; aspect-ratio: 1; }
+    .tone-arm {
+      position: absolute; left: 50%; top: -22%; width: 62%; height: 46%;
+      transform: rotate(8deg); transform-origin: 10% 14%; opacity: 0.95;
+      filter: drop-shadow(0 6px 14px rgba(0,0,0,0.3)); z-index: 4;
+    }
+    /* main arm tube — thin metallic */
+    .tone-arm::before {
+      content: ""; position: absolute; left: 14px; top: 15px;
+      width: 130px; height: 6px; border-radius: 999px;
+      background: linear-gradient(180deg,
+        rgba(220,220,225,0.95) 0%, rgba(180,180,188,0.9) 30%,
+        rgba(240,240,245,0.95) 50%, rgba(160,160,170,0.85) 70%,
+        rgba(200,200,208,0.9) 100%);
+      transform: rotate(33deg); transform-origin: left center;
+      box-shadow:
+        0 1px 2px rgba(255,255,255,0.5),
+        0 -1px 1px rgba(0,0,0,0.3);
+    }
+    /* pivot base — metallic knurled cylinder */
+    .tone-arm::after {
+      content: ""; position: absolute; left: 0; top: 2px;
+      width: 32px; height: 32px; border-radius: 50%;
+      background:
+        radial-gradient(circle at 40% 35%, rgba(255,255,255,0.95) 0 5%, rgba(200,200,210,0.7) 8% 15%, transparent 18%),
+        radial-gradient(circle at 50% 50%, #888 0 50%, #666 51% 70%, #999 71% 85%, #555 86% 100%);
+      box-shadow:
+        0 0 0 3px rgba(80,80,90,0.6),
+        0 0 0 5px rgba(60,60,70,0.4),
+        0 0 0 7px rgba(50,50,60,0.25),
+        0 4px 16px rgba(0,0,0,0.45),
+        inset 0 1px 2px rgba(255,255,255,0.3);
+    }
+    .record {
+      position: absolute; inset: 7%; border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(255,255,255,0.04) 31% 32%, transparent 33%),
+        repeating-radial-gradient(circle, rgba(255,255,255,0.045) 0 1px, transparent 2px 11px),
+        radial-gradient(circle at 38% 28%, rgba(255,255,255,0.13), transparent 18%), #111612;
+      box-shadow: 0 0 0 13px rgba(55,90,62,0.32), 0 28px 70px rgba(0,0,0,0.36), inset 0 0 44px rgba(0,0,0,0.92);
+      animation: spin 13s linear infinite; animation-play-state: paused;
+    }
+    .player-shell.is-visible .record { animation-play-state: running; }
+    .record-cover {
+      position: absolute; inset: 6%; border-radius: 50%; overflow: hidden;
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.85), transparent 0 8%, transparent 9%),
+        linear-gradient(135deg, #ffe2ed 0%, #a9d6ef 48%, #f9f4ef 100%);
+      box-shadow: inset 0 0 0 4px rgba(255,255,255,0.08), 0 0 26px rgba(255,214,231,0.16);
+    }
+    .record-cover img {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+    }
+    .record-cover::before, .record-cover::after { content: ""; position: absolute; border-radius: 50%; pointer-events: none; z-index: 2; }
+    .record-cover::before { width: 58%; height: 58%; left: 10%; top: 18%; background: rgba(255,126,166,0.42); box-shadow: 32px 18px 0 -8px rgba(255,255,255,0.82); }
+    .record-cover::after { width: 44%; height: 44%; right: 6%; bottom: 10%; background: rgba(183,224,244,0.7); }
+
+    .lyrics-panel {
+      position: absolute; right: clamp(8px,2vw,24px); top: clamp(50px,8vh,130px);
+      z-index: 7; width: min(720px,62vw);
+      background: transparent; border-radius: 0; padding: 18px 24px;
+      opacity: 0; transform: translateY(28px) scale(0.985); pointer-events: none;
+      transition: opacity 1100ms ease, transform 1100ms ease;
+    }
+    .lyrics-panel.is-visible { opacity: 1; transform: translateY(0) scale(1); }
+
+    .song-panel { min-width: 0; }
+    .song-name { margin: 0; font-size: clamp(22px,2vw,32px); font-weight: 600; }
+    .song-meta { margin: 10px 0 18px; font-size: 13px; color: rgba(231,250,232,0.52); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tabs { display: inline-flex; align-items: center; gap: 6px; padding: 5px; margin-bottom: 26px; border-radius: 999px; background: rgba(255,255,255,0.055); color: rgba(234,253,235,0.55); font-size: 13px; }
+    .tab-active { padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,0.12); color: #fff; font-weight: 700; }
+    .tab-muted { padding: 5px 8px; }
+    .lyrics-viewport { position: relative; height: 380px; overflow: hidden; }
+    .lyrics-list { transition: transform 880ms cubic-bezier(.22,.61,.36,1); will-change: transform; }
+    .lyric-line { height: 48px; line-height: 48px; font-size: 20px; color: rgba(255,255,255,0.85); transition: opacity 700ms ease, transform 700ms ease, color 700ms ease, text-shadow 700ms ease, font-size 700ms ease; white-space: nowrap; }
+    .lyric-line.near { color: rgba(255,255,255,0.85); }
+    .lyric-line.active { color: #fff; font-size: 30px; transform: translateX(2px); text-shadow: 0 0 18px rgba(255,230,238,0.5), 0 0 30px rgba(255,180,200,0.35); }
+    .final-message { margin-top: 18px; max-width: 34em; opacity: 0; transform: translateY(12px); transition: opacity 900ms ease, transform 900ms ease; color: rgba(250,255,250,0.82); font-size: 14px; line-height: 1.85; }
+    .final-message.is-visible { opacity: 1; transform: translateY(0); }
+
+    .action-area { position: absolute; left: 50%; bottom: clamp(28px,5vh,54px); z-index: 8; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; pointer-events: auto; }
+    .play-button {
+      appearance: none; border: 1px solid rgba(255,255,255,0.22); border-radius: 999px;
+      background: rgba(255,255,255,0.09); color: #fff; padding: 12px 24px; min-width: 148px;
+      font-size: 14px; cursor: pointer; font-family: inherit; pointer-events: auto;
+      box-shadow: 0 18px 55px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.14);
+      transition: transform 160ms ease, background 160ms ease, opacity 420ms ease;
+    }
+    .play-button:hover { transform: translateY(-1px); background: rgba(255,255,255,0.14); }
+    .status { font-size: 12px; color: rgba(232,255,234,0.48); min-width: 96px; }
+    .signature { position: absolute; left: clamp(24px,3vw,44px); bottom: clamp(22px,3vh,36px); z-index: 5; font-size: 12px; color: rgba(232,255,234,0.38); opacity: 0.7; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 980px) {
+      .intro-copy { width: min(420px,70vw); }
+      .player-shell { width: min(320px,40vw); right: 0; bottom: 0; }
+      .lyrics-panel { right: auto; left: 50%; transform: translate(-50%, 0); width: 90vw; top: clamp(40px,6vh,100px); background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; padding: 8px 12px; }
+      .lyrics-panel.is-visible { transform: translate(-50%, 0) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .record, .lyrics-list, .player-shell, .lyrics-panel, .intro-copy, .final-message { animation: none; transition-duration: 1ms; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+  <canvas id="threeCanvas"></canvas>
+
+  <div class="ui-layer">
+    <section class="intro-copy" id="introCopy">
+      <p class="eyebrow">A FLOWER FROM FAR AWAY</p>
+      <h1>给你的一树花</h1>
+      <p class="hint">先让它安静地开一会儿。等星光靠近，花树会慢慢停在你面前。</p>
+    </section>
+
+    <section class="lyrics-panel" id="lyricsPanel" aria-label="歌词">
+      <div class="song-panel">
+        <h2 class="song-name">给你的一树花</h2>
+        <p class="song-meta">专辑：藏在星光里的花树　歌手：远方　来源：这一页小小的网页</p>
+        <div class="tabs" aria-hidden="true">
+          <span class="tab-active">歌词</span><span class="tab-muted">花树</span><span class="tab-muted">祝福</span>
+        </div>
+        <div class="lyrics-viewport"><div class="lyrics-list" id="lyricsList"></div></div>
+        <div class="final-message" id="finalMessage">
+          这一树花送给你。<br>送给刚刚走完这一程的你，也送给那个认真、勇敢、坚持到最后的你。<br>愿你从这个夏天开始，去往更明亮、更自由、更喜欢的未来。
+        </div>
+      </div>
+    </section>
+
+    <section class="player-shell" id="playerShell" aria-label="唱片">
+      <div class="record-scene" aria-hidden="true">
+        <div class="tone-arm"></div>
+        <div class="record"><div class="record-cover" id="recordCover"><img src="cover.jpg" alt="封面" onerror="this.style.display='none'"></div></div>
+      </div>
+    </section>
+
+    <div class="signature">给你的一树花 — cherry blossoms forever</div>
+  </div>
+
+  <div class="action-area">
+    <button class="play-button" id="playButton" type="button" onclick="window._startPlayback&&window._startPlayback()">播放这树花</button>
+    <span class="status" id="statusText">等待播放</span>
+  </div>
+
+  <!-- Model vertex data -->
+  <script src="model-data.js"></script>
+
+  <!-- Three.js (local) -->
+  <script src="three.min.js"></script>
+
+  <script>
+
+  /* ── DOM ── */
+  const canvas = document.getElementById('threeCanvas');
+  const playButton = document.getElementById('playButton');
+  const statusText = document.getElementById('statusText');
+  const introCopy = document.getElementById('introCopy');
+  const playerShell = document.getElementById('playerShell');
+  const lyricsPanel = document.getElementById('lyricsPanel');
+  const lyricsList = document.getElementById('lyricsList');
+  const finalMessage = document.getElementById('finalMessage');
+
+  // Expose early so inline onclick always works
+  window._startPlayback = function(){}; // placeholder, replaced below
+
+  /* ── Lyrics ── */
+  const lyrics = [
+    { time: 0, text: "你说，想要一束花。" },
+    { time: 1.2, text: "可惜我们隔着很远的距离。" },
+    { time: 2.3, text: "所以我把它藏进了星光里。" },
+    { time: 3.5, text: "也藏进了这一页小小的网页里。" },
+    { time: 4.7, text: "给你一树花。" },
+    { time: 5.8, text: "等你打开的时候，" },
+    { time: 7, text: "它会慢慢开在你面前。" },
+    { time: 8.3, text: "亲手送的鲜花很有意义。" },
+    { time: 9.7, text: "但总有一天不能留下。" },
+    { time: 11, text: "电子的花可以一直陪你。" },
+    { time: 12.3, text: "上了一年大学。" },
+    { time: 13.7, text: "高考完的假期最无忧无虑。" },
+    { time: 15, text: "希望你以后打开这个网页" },
+    { time: 16.3, text: "还能回忆到现在。" },
+    { time: 17.7, text: "还有你我相识的过往" },
+    { time: 19, text: "七年过的不快不慢" },
+    { time: 20.3, text: "我是社牛认识很多人" },
+    { time: 21.7, text: "但翻开微信真正能联系的却少。" },
+    { time: 23, text: "前几天参加黑客松" },
+    { time: 24.3, text: "高考没有想象中的重要" },
+    { time: 25.7, text: "大部分学历一般" },
+    { time: 27, text: "并未学过计算机" },
+    { time: 28.3, text: "也能做出自己的项目" },
+    { time: 29.7, text: "四年前还没有AI" },
+    { time: 31, text: "两年前99.99%的中国人没见过AI包括我" },
+    { time: 32.3, text: "今年AI却改变了整个市场" },
+    { time: 33.7, text: "不必纠结当下" },
+    { time: 35, text: "一定找自己的兴趣" },
+    { time: 36.3, text: "没有必要追求所谓的成功" },
+    { time: 37.7, text: "其实人生本就没有成功一说" },
+    { time: 39, text: "愿这个夏天，" },
+    { time: 40.3, text: "把所有等待都变成回响。" },
+    { time: 41.7, text: "愿你去到喜欢的城市，" },
+    { time: 43, text: "遇见很好的人，" },
+    { time: 44.3, text: "也遇见更自由的自己。" },
+    { time: 45.7, text: "这一树花送给你。" },
+    { time: 47, text: "送给刚刚走完这一程的你。" }
+  ];
+
+  function renderLyrics() {
+    lyricsList.innerHTML = lyrics.map(l => `<div class="lyric-line">${l.text}</div>`).join('');
+    updateLyricClasses(0);
+  }
+  function updateLyricClasses(idx) {
+    lyricsList.querySelectorAll('.lyric-line').forEach((l, i) => {
+      l.classList.toggle('active', i === idx);
+      l.classList.toggle('near', Math.abs(i - idx) === 1);
+    });
+    lyricsList.style.transform = `translateY(${166 - idx * 48}px)`;
+  }
+
+  /* ── Decode model points from base64 ── */
+  function decodeModelPoints() {
+    const raw = atob(MODEL_POINTS_B64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    return new Float32Array(bytes.buffer);
+  }
+
+  let modelFloats, POINT_COUNT;
+  try {
+    modelFloats = decodeModelPoints();
+    POINT_COUNT = MODEL_POINT_COUNT;
+  } catch(e) {
+    console.error('Failed to decode model points:', e);
+    statusText.textContent = '模型数据加载失败';
+    modelFloats = new Float32Array(3); POINT_COUNT = 1;
+  }
+
+  /* ══════════════════════════════════════
+     THREE.JS SETUP
+     ══════════════════════════════════════ */
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000, 1);
+
+  const scene = new THREE.Scene();
+
+  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 10);
+  camera.position.set(0, 0.05, 2.8);
+  camera.lookAt(0, -0.05, 0);
+
+  /* ── Glow sprite texture ── */
+  function createGlowTexture(innerColor, outerColor, size) {
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    const half = size / 2;
+    const g = ctx.createRadialGradient(half, half, 0, half, half, half);
+    g.addColorStop(0, innerColor);
+    g.addColorStop(0.08, innerColor);
+    g.addColorStop(0.25, outerColor);
+    g.addColorStop(0.55, 'rgba(255,120,160,0.08)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    return new THREE.CanvasTexture(c);
+  }
+
+  // Flat elliptical / line-shaped texture for main particles
+  function createStreakTexture(innerColor, outerColor, w, h) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    const cx = w / 2, cy = h / 2;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, cx);
+    g.addColorStop(0, innerColor);
+    g.addColorStop(0.15, innerColor);
+    g.addColorStop(0.4, outerColor);
+    g.addColorStop(0.7, 'rgba(255,100,140,0.04)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    // Scale to make it flat/elliptical
+    ctx.save();
+    ctx.scale(1, 0.3);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, cy - cx, w, cx * 2);
+    ctx.restore();
+    return new THREE.CanvasTexture(c);
+  }
+
+  const glowTex = createStreakTexture('rgba(255,220,240,1)', 'rgba(255,140,180,0.55)', 128, 128);
+
+  /* ══════════════════════════════════════
+     MAIN POINT CLOUD — model vertices
+     ══════════════════════════════════════ */
+  // Store original model positions and current animation positions
+  const origPositions = new Float32Array(POINT_COUNT * 3);
+  const animPositions = new Float32Array(POINT_COUNT * 3);
+  const particleStates = new Float32Array(POINT_COUNT * 4); // vx, vy, vz, delay
+  const scatterTargets = new Float32Array(POINT_COUNT * 3); // for dissolve
+
+  // Model bounds
+  let mMinX = Infinity, mMaxX = -Infinity, mMinY = Infinity, mMaxY = -Infinity, mMinZ = Infinity, mMaxZ = -Infinity;
+  for (let i = 0; i < POINT_COUNT; i++) {
+    const x = modelFloats[i * 3], y = modelFloats[i * 3 + 1], z = modelFloats[i * 3 + 2];
+    mMinX = Math.min(mMinX, x); mMaxX = Math.max(mMaxX, x);
+    mMinY = Math.min(mMinY, y); mMaxY = Math.max(mMaxY, y);
+    mMinZ = Math.min(mMinZ, z); mMaxZ = Math.max(mMaxZ, z);
+  }
+
+  // Normalize to fit in view
+  const mCX = (mMinX + mMaxX) / 2, mCY = (mMinY + mMaxY) / 2, mCZ = (mMinZ + mMaxZ) / 2;
+  const mScale = 1.6 / Math.max(mMaxX - mMinX, mMaxY - mMinY, 0.5);
+
+  for (let i = 0; i < POINT_COUNT; i++) {
+    const nx = (modelFloats[i * 3] - mCX) * mScale;
+    const ny = (modelFloats[i * 3 + 1] - mCY) * mScale;
+    const nz = (modelFloats[i * 3 + 2] - mCZ) * mScale;
+    origPositions[i * 3] = nx - 0.55;
+    origPositions[i * 3 + 1] = ny + 0.30;
+    origPositions[i * 3 + 2] = nz;
+    // Start at random scattered positions
+    animPositions[i * 3] = nx - 0.55 + (Math.random() - 0.5) * 3;
+    animPositions[i * 3 + 1] = ny + 0.30 + (Math.random() - 0.5) * 3;
+    animPositions[i * 3 + 2] = nz + (Math.random() - 0.5) * 3;
+    particleStates[i * 4] = (Math.random() - 0.5) * 0.01; // vx
+    particleStates[i * 4 + 1] = (Math.random() - 0.5) * 0.01; // vy
+    particleStates[i * 4 + 2] = (Math.random() - 0.5) * 0.01; // vz
+    particleStates[i * 4 + 3] = Math.random(); // delay
+    // Scatter target (for dissolve)
+    scatterTargets[i * 3] = nx - 0.55 + (Math.random() - 0.5) * 4;
+    scatterTargets[i * 3 + 1] = ny + 0.30 + (Math.random() - 0.5) * 4 + 1.5;
+    scatterTargets[i * 3 + 2] = nz + (Math.random() - 0.5) * 3;
+  }
+
+  const mainGeom = new THREE.BufferGeometry();
+  mainGeom.setAttribute('position', new THREE.BufferAttribute(animPositions, 3));
+  // Store original positions for animation reference
+  mainGeom.userData = { origPositions, scatterTargets };
+
+  const mainMat = new THREE.PointsMaterial({
+    size: 0.025,
+    map: glowTex,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0.85,
+    color: new THREE.Color('#ffb8cc'),
+  });
+
+  const mainPoints = new THREE.Points(mainGeom, mainMat);
+  scene.add(mainPoints);
+
+  /* ══════════════════════════════════════
+     FALLING PETALS — spawn from model edges
+     ══════════════════════════════════════ */
+  const FALL_COUNT = 12000;
+
+  // Build spawn points — strongly bias toward sharp protrusions (branch tips, petal edges)
+  const spawnPoints = [];
+  const modelCX = -0.55;
+  // Pre-compute approximate "sharpness" by checking isolation from neighbors
+  const SAMPLE_STEP = Math.max(1, Math.floor(POINT_COUNT / 8000));
+  for (let i = 0; i < POINT_COUNT; i += SAMPLE_STEP) {
+    const ix = origPositions[i * 3], iy = origPositions[i * 3 + 1], iz = origPositions[i * 3 + 2];
+    const dx = ix - modelCX, dy = iy, dz = iz;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    // Check isolation: average distance to 5 random other vertices
+    let avgNeighborDist = 0;
+    for (let k = 0; k < 5; k++) {
+      const j = Math.floor(Math.random() * POINT_COUNT);
+      const jdx = ix - origPositions[j * 3], jdy = iy - origPositions[j * 3 + 1], jdz = iz - origPositions[j * 3 + 2];
+      avgNeighborDist += Math.sqrt(jdx * jdx + jdy * jdy + jdz * jdz);
+    }
+    avgNeighborDist /= 5;
+    // Sharpness: high when far from center AND isolated from neighbors
+    const sharpness = dist * 1.2 + avgNeighborDist * 0.8;
+    // Probability heavily weighted toward sharp points
+    if (Math.random() < sharpness * 0.55) {
+      spawnPoints.push({ x: ix, y: iy, z: iz, dist, sharpness });
+    }
+  }
+  // Fill to target
+  while (spawnPoints.length < 4000) {
+    const i = Math.floor(Math.random() * POINT_COUNT);
+    const ix = origPositions[i * 3], iy = origPositions[i * 3 + 1], iz = origPositions[i * 3 + 2];
+    const dx = ix - modelCX, dy = iy, dz = iz;
+    spawnPoints.push({ x: ix, y: iy, z: iz, dist: Math.sqrt(dx*dx+dy*dy+dz*dz), sharpness: 0.3 });
+  }
+  // Weighted sampling: sharper points appear more times
+  const weightedSpawns = [];
+  spawnPoints.forEach(sp => {
+    const copies = Math.max(1, Math.floor(sp.sharpness * 3 + sp.dist * 2));
+    for (let c = 0; c < Math.min(copies, 8); c++) weightedSpawns.push(sp);
+  });
+  console.log('Spawn points:', spawnPoints.length, 'Weighted:', weightedSpawns.length);
+
+  const fallPositions = new Float32Array(FALL_COUNT * 3);
+  const fallVelocities = new Float32Array(FALL_COUNT * 3);
+
+  const bottomY = mMinY * mScale - 0.6;
+
+  function resetPetal(i) {
+    const sp = weightedSpawns[Math.floor(Math.random() * weightedSpawns.length)];
+    // Start at model vertex
+    fallPositions[i * 3] = sp.x + (Math.random() - 0.5) * 0.08;
+    fallPositions[i * 3 + 1] = sp.y + (Math.random() - 0.5) * 0.08;
+    fallPositions[i * 3 + 2] = sp.z + (Math.random() - 0.5) * 0.08;
+    // Flow outward from model surface + downward
+    const dx = sp.x - modelCX;
+    const dz = sp.z;
+    const outLen = Math.sqrt(dx * dx + dz * dz) || 0.001;
+    fallVelocities[i * 3] = (dx / outLen) * (0.002 + Math.random() * 0.008) + (Math.random() - 0.5) * 0.004;
+    fallVelocities[i * 3 + 1] = -(0.003 + Math.random() * 0.012);
+    fallVelocities[i * 3 + 2] = (dz / outLen) * (0.002 + Math.random() * 0.006) + (Math.random() - 0.5) * 0.003;
+  }
+
+  for (let i = 0; i < FALL_COUNT; i++) {
+    resetPetal(i);
+    // Stagger initial Y so they don't all start at the same height
+    fallPositions[i * 3 + 1] -= Math.random() * 1.2;
+  }
+
+  const fallGeom = new THREE.BufferGeometry();
+  fallGeom.setAttribute('position', new THREE.BufferAttribute(fallPositions, 3));
+
+  const fallTex = createGlowTexture('rgba(255,200,220,1)', 'rgba(255,150,180,0.5)', 64);
+  const fallMat = new THREE.PointsMaterial({
+    size: 0.018,
+    map: fallTex,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0.7,
+    color: new THREE.Color('#ffd0e0'),
+  });
+
+  const fallPoints = new THREE.Points(fallGeom, fallMat);
+  scene.add(fallPoints);
+
+  /* ══════════════════════════════════════
+     GROUND FLOW — petals drifting on ground
+     ══════════════════════════════════════ */
+  const GROUND_COUNT = 6000;
+  const groundPositions = new Float32Array(GROUND_COUNT * 3);
+  const groundVelocities = new Float32Array(GROUND_COUNT * 3);
+  const groundY = bottomY + 0.08;
+  const groundSpreadX = 1.5;
+
+  for (let i = 0; i < GROUND_COUNT; i++) {
+    groundPositions[i * 3] = modelCX + (Math.random() - 0.5) * groundSpreadX * 2;
+    groundPositions[i * 3 + 1] = groundY + Math.random() * 0.3;
+    groundPositions[i * 3 + 2] = (Math.random() - 0.5) * 1.2;
+    groundVelocities[i * 3] = (Math.random() - 0.5) * 0.006;
+    groundVelocities[i * 3 + 1] = Math.random() * 0.003;
+    groundVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.004;
+  }
+
+  const groundGeom = new THREE.BufferGeometry();
+  groundGeom.setAttribute('position', new THREE.BufferAttribute(groundPositions, 3));
+  const groundTex = createGlowTexture('rgba(255,190,210,1)', 'rgba(255,140,170,0.45)', 48);
+  const groundMat = new THREE.PointsMaterial({
+    size: 0.014,
+    map: groundTex,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0.55,
+    color: new THREE.Color('#ffc8d8'),
+  });
+  const groundPoints = new THREE.Points(groundGeom, groundMat);
+  scene.add(groundPoints);
+
+  /* ══════════════════════════════════════
+     AMBIENT STARS
+     ══════════════════════════════════════ */
+  const STAR_COUNT = 800;
+  const starPositions = new Float32Array(STAR_COUNT * 3);
+  for (let i = 0; i < STAR_COUNT; i++) {
+    starPositions[i * 3] = (Math.random() - 0.5) * 6;
+    starPositions[i * 3 + 1] = (Math.random() - 0.5) * 5;
+    starPositions[i * 3 + 2] = -0.5 - Math.random() * 2;
+  }
+  const starGeom = new THREE.BufferGeometry();
+  starGeom.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+  const starTex = createGlowTexture('rgba(255,255,255,1)', 'rgba(200,180,255,0.4)', 32);
+  const starMat = new THREE.PointsMaterial({
+    size: 0.012,
+    map: starTex,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0.5,
+    color: new THREE.Color('#e8d8ff'),
+  });
+  const starPoints = new THREE.Points(starGeom, starMat);
+  scene.add(starPoints);
+
+  /* ══════════════════════════════════════
+     STATE
+     ══════════════════════════════════════ */
+  let stage = 'idle'; // idle | forming | formed | blooming | complete
+  let gatherProgress = 0; // 0=scattered, 1=formed
+  let targetGather = 0;
+  let startTime = 0;
+  let elapsed = 0;
+  let lyricIndex = -1;
+  let bloomStart = 0;
+  let bloomFlash = 0;
+  const clock = new THREE.Clock();
+  const _vec = new THREE.Vector3(); // reusable for pointer projection
+
+  /* ══════════════════════════════════════
+     ANIMATION UPDATE
+     ══════════════════════════════════════ */
+  function updateGather(dt) {
+    gatherProgress += (targetGather - gatherProgress) * Math.min(1, dt * 3);
+
+    const posArr = mainGeom.attributes.position.array;
+    const orig = mainGeom.userData.origPositions;
+    const scat = mainGeom.userData.scatterTargets;
+
+    for (let i = 0; i < POINT_COUNT; i++) {
+      const i3 = i * 3, i4 = i * 4;
+      const delay = particleStates[i4 + 3];
+      const ready = Math.max(0, Math.min(1, (gatherProgress - delay * 0.35) / 0.65));
+      const e = 1 - Math.pow(1 - ready, 3); // ease out
+
+      // Target: interpolate between scatter and original
+      const tx = scat[i3] + (orig[i3] - scat[i3]) * e;
+      const ty = scat[i3 + 1] + (orig[i3 + 1] - scat[i3 + 1]) * e;
+      const tz = scat[i3 + 2] + (orig[i3 + 2] - scat[i3 + 2]) * e;
+
+      // Spring — strong pullback after scatter
+      const sp = 0.08;
+      particleStates[i4] += (tx - posArr[i3]) * sp;
+      particleStates[i4 + 1] += (ty - posArr[i3 + 1]) * sp;
+      particleStates[i4 + 2] += (tz - posArr[i3 + 2]) * sp;
+
+      // Friction
+      particleStates[i4] *= 0.88;
+      particleStates[i4 + 1] *= 0.88;
+      particleStates[i4 + 2] *= 0.88;
+
+      // Pointer — massive high-speed scatter in all directions
+      if (pointer.active) {
+        _vec.set(posArr[i3], posArr[i3 + 1], posArr[i3 + 2]);
+        _vec.project(camera);
+        const sx = (_vec.x * 0.5 + 0.5) * window.innerWidth;
+        const sy = (-_vec.y * 0.5 + 0.5) * window.innerHeight;
+        const pdx = sx - pointer.x, pdy = sy - pointer.y;
+        const pdist = pdx * pdx + pdy * pdy;
+        if (pdist < 160000) { // 400px range, all particles
+          const pd = Math.sqrt(pdist) + 0.1;
+          const baseForce = (1 - pd / 400);
+          // Huge random force — particles rocket outward
+          const strength = baseForce * (0.3 + Math.random() * 0.8);
+          // Wide random angle — not circular
+          const angle = Math.atan2(pdy, pdx) + (Math.random() - 0.5) * 3.0;
+          particleStates[i4] += Math.cos(angle) * strength;
+          particleStates[i4 + 1] += Math.sin(angle) * strength * 0.8;
+          particleStates[i4 + 2] += (Math.random() - 0.5) * strength * 0.4;
+        }
+      }
+
+      // Breathing when formed
+      if (stage === 'formed') {
+        const t = performance.now() * 0.001;
+        particleStates[i4] += Math.sin(t * 1.2 + i * 0.01) * 0.0001;
+        particleStates[i4 + 1] += Math.cos(t * 0.9 + i * 0.013) * 0.0001;
+      }
+
+      // Pointer — single-frame explosive kick, no lingering ring
+      if (pointer.active) {
+        _vec.set(posArr[i3], posArr[i3 + 1], posArr[i3 + 2]);
+        _vec.project(camera);
+        const sx = (_vec.x * 0.5 + 0.5) * window.innerWidth;
+        const sy = (-_vec.y * 0.5 + 0.5) * window.innerHeight;
+        const pdx = sx - pointer.x, pdy = sy - pointer.y;
+        const pdist = pdx * pdx + pdy * pdy;
+        const curSpeed = particleStates[i4]*particleStates[i4] + particleStates[i4+1]*particleStates[i4+1];
+        // Only kick particles that are near cursor AND not already flying fast
+        if (pdist < 40000 && curSpeed < 0.0004) { // 200px, slow particles only
+          const pd = Math.sqrt(pdist) + 0.1;
+          const pf = (1 - pd / 200) * 0.25;
+          // Strong single kick outward + random scatter
+          particleStates[i4] += (pdx / pd) * pf + (Math.random() - 0.5) * pf;
+          particleStates[i4 + 1] += (pdy / pd) * pf + (Math.random() - 0.5) * pf;
+          particleStates[i4 + 2] += (Math.random() - 0.5) * pf * 0.5;
+        }
+      }
+
+      posArr[i3] += particleStates[i4];
+      posArr[i3 + 1] += particleStates[i4 + 1];
+      posArr[i3 + 2] += particleStates[i4 + 2];
+    }
+    mainGeom.attributes.position.needsUpdate = true;
+
+    // Opacity linked to gather
+    mainMat.opacity = 0.2 + gatherProgress * 0.7;
+
+    // Falling petals + ground flow only after model is formed
+    const formed = gatherProgress > 0.95 ? (gatherProgress - 0.95) / 0.05 : 0;
+    fallMat.opacity = formed * 0.7;
+    groundMat.opacity = formed * 0.55;
+  }
+
+  function updateFalling(dt) {
+    const posArr = fallGeom.attributes.position.array;
+    const now = performance.now();
+    for (let i = 0; i < FALL_COUNT; i++) {
+      const i3 = i * 3;
+      // Flowing sway — sinuous horizontal drift
+      fallVelocities[i3] += Math.sin(now * 0.0025 + i * 0.1) * 0.00008;
+      fallVelocities[i3 + 2] += Math.cos(now * 0.003 + i * 0.12) * 0.00006;
+      // Slight gravity increase
+      fallVelocities[i3 + 1] -= 0.00015;
+      // Damping
+      fallVelocities[i3] *= 0.998;
+      fallVelocities[i3 + 1] *= 0.998;
+      fallVelocities[i3 + 2] *= 0.998;
+
+      posArr[i3] += fallVelocities[i3] * dt * 60;
+      posArr[i3 + 1] += fallVelocities[i3 + 1] * dt * 60;
+      posArr[i3 + 2] += fallVelocities[i3 + 2] * dt * 60;
+
+      // Reset if below — respawn from model edge
+      if (posArr[i3 + 1] < bottomY) {
+        resetPetal(i);
+      }
+    }
+    fallGeom.attributes.position.needsUpdate = true;
+  }
+
+  function updateGroundFlow(dt) {
+    const posArr = groundGeom.attributes.position.array;
+    const now = performance.now();
+    for (let i = 0; i < GROUND_COUNT; i++) {
+      const i3 = i * 3;
+      // Horizontal wind — stronger sinusoidal drift
+      groundVelocities[i3] += Math.sin(now * 0.0018 + i * 0.07) * 0.00012;
+      groundVelocities[i3 + 2] += Math.cos(now * 0.0022 + i * 0.09) * 0.0001;
+      groundVelocities[i3] *= 0.995;
+      groundVelocities[i3 + 1] *= 0.98;
+      groundVelocities[i3 + 2] *= 0.995;
+
+      posArr[i3] += groundVelocities[i3] * dt * 60;
+      posArr[i3 + 1] += groundVelocities[i3 + 1] * dt * 60;
+      posArr[i3 + 2] += groundVelocities[i3 + 2] * dt * 60;
+
+      // Keep near ground, bounce up slightly
+      if (posArr[i3 + 1] < groundY - 0.05) {
+        posArr[i3 + 1] = groundY - 0.05;
+        groundVelocities[i3 + 1] = Math.abs(groundVelocities[i3 + 1]) * 0.5 + Math.random() * 0.004;
+      }
+      if (posArr[i3 + 1] > groundY + 0.35) {
+        groundVelocities[i3 + 1] -= 0.002;
+      }
+      // Wrap horizontally
+      if (posArr[i3] < modelCX - groundSpreadX) posArr[i3] = modelCX + groundSpreadX;
+      if (posArr[i3] > modelCX + groundSpreadX) posArr[i3] = modelCX - groundSpreadX;
+      if (Math.abs(posArr[i3 + 2]) > 0.7) groundVelocities[i3 + 2] *= -0.5;
+    }
+    groundGeom.attributes.position.needsUpdate = true;
+  }
+
+  /* ══════════════════════════════════════
+     LYRICS UPDATE
+     ══════════════════════════════════════ */
+  function updateLyrics() {
+    if (stage !== 'forming' && stage !== 'readyToReceive') return;
+    let ni = 0;
+    for (let i = lyrics.length - 1; i >= 0; i--) {
+      if (elapsed >= lyrics[i].time) { ni = i; break; }
+    }
+    if (ni !== lyricIndex) {
+      lyricIndex = ni;
+      updateLyricClasses(lyricIndex);
+      if (lyricIndex >= 5) {
+        lyricsPanel.classList.add('is-visible');
+        playerShell.classList.add('is-visible');
+      }
+      if (lyricIndex >= 33) {
+        stage = 'readyToReceive';
+        playButton.textContent = '收下这树花';
+        playButton.style.opacity = '1';
+        playButton.style.pointerEvents = 'auto';
+        statusText.textContent = '可以收下了';
+      }
+    }
+    targetGather = Math.min(1, elapsed / 6 * 1.05);
+  }
+
+  /* ══════════════════════════════════════
+     MAIN LOOP
+     ══════════════════════════════════════ */
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const dt = Math.min(0.1, clock.getDelta());
+
+    if (stage === 'forming' || stage === 'readyToReceive') {
+      elapsed = (performance.now() - startTime) / 1000;
+      updateLyrics();
+    }
+
+    if (stage === 'blooming') {
+      const be = (performance.now() - bloomStart) / 1000;
+      bloomFlash = Math.max(0, 1 - be / 1.5);
+      targetGather = 0.15; // dissolve
+      if (be > 2.0) {
+        stage = 'complete';
+        targetGather = 1.0;
+        finalMessage.classList.add('is-visible');
+        playButton.textContent = '再看一遍';
+        playButton.style.opacity = '1';
+        playButton.style.pointerEvents = 'auto';
+        statusText.textContent = '已送达';
+      }
+    }
+
+    updateGather(dt);
+    updateFalling(dt);
+    updateGroundFlow(dt);
+
+    // Keep consistent pink color
+    if (stage !== 'blooming' || bloomFlash < 0.3) {
+      mainMat.color.setRGB(1, 0.72, 0.8);
+    }
+
+    // Subtle camera sway
+    const t = performance.now() * 0.0003;
+    camera.position.x = Math.sin(t) * 0.06;
+    camera.position.y = 0.05 + Math.cos(t * 0.7) * 0.03;
+
+    renderer.render(scene, camera);
+  }
+
+  /* ══════════════════════════════════════
+     PLAYBACK CONTROL
+     ══════════════════════════════════════ */
+  function startPlayback() {
+    if (stage === 'idle') {
+      stage = 'forming';
+      startTime = performance.now();
+      targetGather = 0.3;
+      lyricIndex = -1;
+      introCopy.classList.add('is-quiet');
+      playButton.style.opacity = '0';
+      playButton.style.pointerEvents = 'none';
+      statusText.textContent = '花树正在成型';
+      finalMessage.classList.remove('is-visible');
+    } else if (stage === 'readyToReceive') {
+      stage = 'blooming';
+      bloomStart = performance.now();
+      bloomFlash = 1;
+      playButton.style.opacity = '0';
+      playButton.style.pointerEvents = 'none';
+      statusText.textContent = '花瓣飞舞';
+      // Explosive burst — push all particles outward from center
+      const bx = -0.55, by = 0.30; // model center
+      const posArr = mainGeom.attributes.position.array;
+      for (let i = 0; i < POINT_COUNT; i++) {
+        const i3 = i * 3, i4 = i * 4;
+        const dx = posArr[i3] - bx, dy = posArr[i3 + 1] - by;
+        const len = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const strength = 0.03 + Math.random() * 0.07;
+        particleStates[i4] += (dx / len) * strength;
+        particleStates[i4 + 1] += (dy / len) * strength * 0.8;
+        particleStates[i4 + 2] += (Math.random() - 0.5) * 0.04;
+      }
+    } else if (stage === 'complete') {
+      resetAll();
+    }
+  }
+
+  function resetAll() {
+    stage = 'idle';
+    elapsed = 0; lyricIndex = -1;
+    targetGather = 0; gatherProgress = 0;
+    bloomFlash = 0;
+    introCopy.classList.remove('is-quiet');
+    playerShell.classList.remove('is-visible');
+    lyricsPanel.classList.remove('is-visible');
+    finalMessage.classList.remove('is-visible');
+    playButton.textContent = '播放这树花';
+    playButton.style.opacity = '1'; playButton.style.pointerEvents = 'auto';
+    statusText.textContent = '等待播放';
+    updateLyricClasses(0);
+    mainMat.color.setRGB(1, 0.72, 0.8);
+  }
+
+  playButton.addEventListener('click', startPlayback);
+  window._startPlayback = startPlayback; // for inline onclick fallback
+
+  /* ── Pointer interaction (mouse + touch) ── */
+  const pointer = { x: -9999, y: -9999, active: false };
+  canvas.addEventListener('pointermove', (e) => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.active = true; });
+  canvas.addEventListener('pointerup', () => { pointer.active = false; });
+  canvas.addEventListener('pointerleave', () => { pointer.active = false; pointer.x = -9999; pointer.y = -9999; });
+  canvas.addEventListener('pointercancel', () => { pointer.active = false; });
+
+  /* ══════════════════════════════════════
+     RESIZE
+     ══════════════════════════════════════ */
+  window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  });
+
+  /* ══════════════════════════════════════
+     START
+     ══════════════════════════════════════ */
+  renderLyrics();
+  animate();
+  </script>
+  </main>
+</body>
+</html>
