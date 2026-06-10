@@ -380,12 +380,12 @@
   mainGeom.userData = { origPositions, scatterTargets };
 
   const mainMat = new THREE.PointsMaterial({
-    size: 0.025,
+    size: 0.035,
     map: glowTex,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.9,
     color: new THREE.Color('#ffb8cc'),
   });
 
@@ -638,7 +638,7 @@
     mainGeom.attributes.position.needsUpdate = true;
 
     // Opacity linked to gather
-    mainMat.opacity = 0.2 + gatherProgress * 0.7;
+    mainMat.opacity = 0.55 + gatherProgress * 0.4;
 
     // Falling petals + ground flow only after model is formed
     const formed = gatherProgress > 0.95 ? (gatherProgress - 0.95) / 0.05 : 0;
