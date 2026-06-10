@@ -187,6 +187,11 @@
   <script src="three.min.js"></script>
 
   <script>
+  // Immediate feedback that script started
+  (function(){
+    var el = document.getElementById('statusText');
+    if(el) el.textContent = '加载中...';
+  })();
 
   /* ── DOM ── */
   const canvas = document.getElementById('threeCanvas');
@@ -849,8 +854,15 @@
   /* ══════════════════════════════════════
      START
      ══════════════════════════════════════ */
-  renderLyrics();
-  animate();
+  try {
+    renderLyrics();
+    animate();
+    statusText.textContent = '等待播放';
+    console.log('Flower tree ready. Points:', POINT_COUNT);
+  } catch(e) {
+    statusText.textContent = '错误: ' + e.message;
+    console.error(e);
+  }
   </script>
   </main>
 </body>
